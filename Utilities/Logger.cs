@@ -19,7 +19,7 @@ namespace OpenHardwareMonitor.Utilities {
   public class Logger {
 
     private const string fileNameFormat = 
-      "OpenHardwareMonitorLog-{0:yyyy-MM-dd}.csv";
+      @"OpenHardwareMonitorLog\OpenHardwareMonitorLog-{0:yyyy-MM-dd}.csv";
 
     private readonly IComputer computer;
 
@@ -59,7 +59,7 @@ namespace OpenHardwareMonitor.Utilities {
         return;
 
       for (int i = 0; i < sensors.Length; i++) {
-        if (sensor.Identifier.ToString() == identifiers[i])
+        if ($"{sensor.Identifier}/{sensor.Name}" == identifiers[i].Trim('\"'))
           sensors[i] = sensor;
       }
     }
@@ -75,8 +75,15 @@ namespace OpenHardwareMonitor.Utilities {
     }
 
     private static string GetFileName(DateTime date) {
-      return AppDomain.CurrentDomain.BaseDirectory +
+      var fileName = AppDomain.CurrentDomain.BaseDirectory +
         Path.DirectorySeparatorChar + string.Format(fileNameFormat, date);
+      var dirName = Path.GetDirectoryName(fileName);
+
+      if (!Directory.Exists(dirName)) {
+        Directory.CreateDirectory(dirName);
+      }
+
+      return fileName;
     }
 
     private bool OpenExistingLogFile() {
@@ -105,7 +112,7 @@ namespace OpenHardwareMonitor.Utilities {
       sensors = new ISensor[identifiers.Length];
       SensorVisitor visitor = new SensorVisitor(sensor => {
         for (int i = 0; i < identifiers.Length; i++)
-          if (sensor.Identifier.ToString() == identifiers[i])
+          if ($"{sensor.Identifier}/{sensor.Name}" == identifiers[i].Trim('\"'))
             sensors[i] = sensor;
       });
       visitor.VisitComputer(computer);
@@ -119,23 +126,12 @@ namespace OpenHardwareMonitor.Utilities {
       });
       visitor.VisitComputer(computer);
       sensors = list.ToArray();
-      identifiers = sensors.Select(s => s.Identifier.ToString()).ToArray();
+      identifiers = sensors.Select(s => $"{s.Identifier}/{s.Name}").ToArray();
 
       using (StreamWriter writer = new StreamWriter(fileName, false)) {
-        writer.Write(",");
-        for (int i = 0; i < sensors.Length; i++) {
-          writer.Write(sensors[i].Identifier);
-          if (i < sensors.Length - 1)
-            writer.Write(",");
-          else
-            writer.WriteLine();
-        }
-
         writer.Write("Time,");
         for (int i = 0; i < sensors.Length; i++) {
-          writer.Write('"');
-          writer.Write(sensors[i].Name);
-          writer.Write('"');
+          writer.Write($"\"{identifiers[i]}\"");
           if (i < sensors.Length - 1)
             writer.Write(",");
           else
